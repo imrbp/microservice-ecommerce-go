@@ -1,0 +1,79 @@
+services:
+
+  rabbitmq:
+    image: rabbitmq:management
+    container_name: rabbitmq
+    port:
+      - "15672:15672"
+      - "5672:5672"
+    networks:
+      - default
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+      interval: 5s
+      timeout: 15s
+      retries: 1
+  order_service:
+    build:
+      dockerfile: ./order/Dockerfile
+    depends_on:
+      - "rabbitmq"
+      - "db_order_service"
+    
+  financial_service:
+    build:
+      dockerfile: ./financial/Dockerfile
+    depends_on:
+      - "rabbitmq"
+
+
+  warehouse_service:
+    build:
+      dockerfile: ./warehouse/Dockerfile
+    depends_on:
+      - "rabbitmq"
+
+  db_order_service:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=order_db
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes: 
+      - db:/var/lib/postgresql/data
+
+  db_financial_service:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=financial_db
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes: 
+      - db:/var/lib/postgresql/data
+  custom:
+    build: ~/custom
+
+  db_warehouse_servcie:
+    image: postgres:14.1-alpine
+    restart: always
+    environment:
+      - POSTGRES_USER=warehouse_db
+      - POSTGRES_PASSWORD=postgres
+    ports:
+      - '5432:5432'
+    volumes: 
+      - db:/var/lib/postgresql/data
+  custom:
+    build: ~/custom
+
+volumes:
+  db_financial_service:
+    driver: local 
+  db_warehouse_servcie:
+    driver: local
+  db_order_service:
+    driver: local
