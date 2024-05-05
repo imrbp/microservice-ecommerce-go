@@ -31,4 +31,14 @@ CREATE TABLE order_prodcuts
   price INT NOT NULL, 
   CONSTRAINT fk_order_mp FOREIGN KEY (order_id) REFERENCES orders(order_id),
   CONSTRAINT fk_products_mp FOREIGN KEY (product_id) REFERENCES products(product_id)
-)
+);
+
+
+CREATE TABLE payments
+(
+    id VARCHAR(100) UNIQUE NOT NULL,
+    order_id VARCHAR(100) NOT NULL,
+    invoice_number VARCHAR(100),
+    status VARCHAR(50),
+    amount INT NOT NULL
+);

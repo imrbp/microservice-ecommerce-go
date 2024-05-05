@@ -1,4 +1,4 @@
-package rabbitmq
+package manager 
 
 import (
 	"errors"
@@ -14,9 +14,11 @@ type ChannelManager struct {
 	channel              *amqp.Channel
 	connManager          *ConnectionManager
 	channelMux           *sync.RWMutex
+
 	reconnectInterval    time.Duration
 	reconnectionCount    uint
 	reconnectionCountMux *sync.Mutex
+
 	dispatcher           *Dispatcher
 }
 
@@ -31,9 +33,11 @@ func NewChannelManager(connManager *ConnectionManager, log *logrus.Logger, recon
 		connManager:          connManager,
 		channel:              ch,
 		channelMux:           &sync.RWMutex{},
+
 		reconnectInterval:    reconnectInterval,
 		reconnectionCount:    0,
 		reconnectionCountMux: &sync.Mutex{},
+
 		dispatcher:           NewDispatcher(),
 	}
 	go chanManager.startNotifyCancelOrClosed()

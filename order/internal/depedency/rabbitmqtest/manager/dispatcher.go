@@ -1,4 +1,4 @@
-package rabbitmq 
+package manager 
 
 import (
 	"log"
@@ -8,7 +8,6 @@ import (
 	"time"
 )
 
-// Dispatcher -
 type Dispatcher struct {
 	subscribers    map[int]dispatchSubscriber
 	subscribersMux *sync.Mutex
@@ -19,7 +18,6 @@ type dispatchSubscriber struct {
 	closeCh                 <-chan struct{}
 }
 
-// NewDispatcher -
 func NewDispatcher() *Dispatcher {
 	return &Dispatcher{
 		subscribers:    make(map[int]dispatchSubscriber),
@@ -27,7 +25,6 @@ func NewDispatcher() *Dispatcher {
 	}
 }
 
-// Dispatch -
 func (d *Dispatcher) Dispatch(err error) error {
 	d.subscribersMux.Lock()
 	defer d.subscribersMux.Unlock()
@@ -41,7 +38,6 @@ func (d *Dispatcher) Dispatch(err error) error {
 	return nil
 }
 
-// AddSubscriber -
 func (d *Dispatcher) AddSubscriber() (<-chan error, chan<- struct{}) {
 	const maxRand = math.MaxInt
 	const minRand = 0

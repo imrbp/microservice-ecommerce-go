@@ -53,6 +53,8 @@ func (c *OrderController) Checkout(ctx *fiber.Ctx) error {
   }
   c.OrderService.Log.Infof("Checkout Orders: %v", ctx.BaseURL())
  
-  return nil
+  return ctx.Status(fiber.StatusOK).JSON(
+    "Success",
+    ) 
 
 }

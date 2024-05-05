@@ -1,4 +1,4 @@
-package rabbitmq
+package manager 
 
 import (
 	"sync"
@@ -12,11 +12,14 @@ type ConnectionManager struct {
 	logger               *logrus.Logger
 	url                  string
 	connection           *amqp.Connection
+
 	amqpConfig           amqp.Config
 	connectionMux        *sync.RWMutex
+
 	ReconnectInterval    time.Duration
 	reconnectionCount    uint
 	reconnectionCountMux *sync.Mutex
+
 	dispatcher           *Dispatcher
 }
 

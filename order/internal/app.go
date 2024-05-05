@@ -4,10 +4,12 @@ import (
 	delivery "order_service/internal/delivery/http"
 	"order_service/internal/delivery/http/route"
 	dependency "order_service/internal/depedency"
+  messaging	"order_service/internal/delivery/messaging"
 	"order_service/internal/repository"
 	"order_service/internal/service"
-  "github.com/wagslane/go-rabbitmq"
+
 	"github.com/gofiber/fiber/v2"
+	"github.com/wagslane/go-rabbitmq"
 	"gorm.io/gorm"
 )
 
@@ -25,32 +27,11 @@ func Bootstrap(config *BootstrapApp) {
   orderRepository := repository.NewOrderRepository(config.DB, config.Log.Log)
   orderProductRepository := repository.NewOrderProductsRespository(config.DB, config.Log.Log)
 
-  orderPublisher, err := rabbitmq.NewPublisher(
-    config.Conn,
-    rabbitmq.WithPublisherOptionsExchangeName("proceed_payment"),
-    )
-  
-  if err != nil {
-    config.Log.Log.Panicf("Error Make Order Publisher : %v", err)
-  }
-
-  orderConsumer, err := rabbitmq.NewConsumer(
-  	config.Conn,
-  	"order_service",
-    rabbitmq.WithConsumerOptionsRoutingKey(""),
-    rabbitmq.WithConsumerOptionsExchangeName("payment_status"),
-    rabbitmq.WithConsumerOptionsExchangeKind("fanout"),
-    rabbitmq.WithConsumerOptionsQueueDurable,
-    rabbitmq.WithConsumerOptionsQueueQuorum,
-    )
-  if err != nil {
-    config.Log.Log.Panicf("Error Make Order Cosumer: %v", err)
-  }
-
+  orderPublisher := messaging.NewOrderPublisher(config.Log.Log, config.Conn) 
 
   productService := service.NewProductService(config.DB, config.Log.Log, productRepository, cartRepository)
   cartService := service.NewCartService(config.DB, config.Log.Log, cartRepository)
-  orderService := service.NewOrderService(config.DB, config.Log.Log, orderRepository, cartRepository, productRepository, orderProductRepository, orderPublisher, orderConsumer )
+  orderService := service.NewOrderService(config.DB, config.Log.Log, orderRepository, cartRepository, productRepository, orderProductRepository, orderPublisher)
 
   productController := delivery.NewProductController(config.Validation, productService)
   cartController := delivery.NewCartController(config.Validation, cartService)

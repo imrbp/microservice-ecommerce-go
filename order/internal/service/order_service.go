@@ -2,30 +2,27 @@ package service
 
 import (
 	"context"
-	"encoding/json"
+	delivery "order_service/internal/delivery/messaging"
 	"order_service/internal/entity"
 	"order_service/internal/model"
 	"order_service/internal/model/converter"
 	"order_service/internal/repository"
 
-  "github.com/wagslane/go-rabbitmq" 
-	
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
 type OrderService struct {
-	DB       *gorm.DB
-	Log      *logrus.Logger
+	DB  *gorm.DB
+	Log *logrus.Logger
 
 	OrderRepository        *repository.OrderRepository
 	CartRepository         *repository.CartRepository
 	ProductRepository      *repository.ProductRepository
 	OrderProductRepository *repository.OrderProductsRespository
 
-	OrderPublisher *rabbitmq.Publisher
-	OrderConsumer *rabbitmq.Consumer
+	OrderPublisher *delivery.OrderPublisher
 }
 
 func NewOrderService(
@@ -35,8 +32,7 @@ func NewOrderService(
 	cartRepository *repository.CartRepository,
 	productRepository *repository.ProductRepository,
 	orderProductsRespository *repository.OrderProductsRespository,
-	orderPublisher *rabbitmq.Publisher,
-  orderConsumer *rabbitmq.Consumer,
+	orderPublisher *delivery.OrderPublisher,
 ) *OrderService {
 	return &OrderService{
 		DB:                     db,
@@ -46,7 +42,6 @@ func NewOrderService(
 		ProductRepository:      productRepository,
 		OrderProductRepository: orderProductsRespository,
 		OrderPublisher:         orderPublisher,
-    OrderConsumer: orderConsumer,
 	}
 }
 
@@ -60,33 +55,6 @@ func (oS *OrderService) GetAllOrder(ctx context.Context, orderSearch *model.Sear
 		orderSearch.Orders = append(orderSearch.Orders, *converter.OrderToResponse(&order))
 	}
 	return nil
-}
-
-func (oS *OrderService) UpdateOrder(ctx context.Context, orderUpdate *model.UpdateOrder) error {
-  tx := oS.DB.WithContext(ctx).Begin()
-	defer tx.Rollback()
-
-  var order entity.Orders
-
-  if err := oS.OrderRepository.GetById(orderUpdate.OrderId, &order) ; err != nil {
-    return err
-  }
-
-  if orderUpdate.Status != "" {
-    order.Status = orderUpdate.Status 
-  }
-
-  if orderUpdate.Airwaybill!= "" {
-    order.Airwaybill = orderUpdate.Airwaybill
-  }
-  if orderUpdate.InvoiceNumber != "" {
-    order.Invoice = orderUpdate.InvoiceNumber
-  }
-
-  if err := oS.OrderRepository.UpdateOrder(&order) ; err != nil {
-    return err
-  }
-  return nil
 }
 
 func (oS *OrderService) Checkout(ctx context.Context, orderRequest *model.OrderRequest) error {
@@ -110,12 +78,12 @@ func (oS *OrderService) Checkout(ctx context.Context, orderRequest *model.OrderR
 			return err
 		}
 
-    var productR entity.Product
-    if err := oS.ProductRepository.GetProductById(product.ProductId, &productR); err != nil {
+		var productR entity.Product
+		if err := oS.ProductRepository.GetProductById(product.ProductId, &productR); err != nil {
 			return err
 		}
 
-    product.Price = int64(product.Quantity) * productR.Price
+		product.Price = int64(product.Quantity) * productR.Price
 		products = append(products, *converter.M_OrderProduct_E_OrderProduct(orderId, &product))
 		order.TotalPrice = order.TotalPrice + productR.Price
 	}
@@ -125,34 +93,13 @@ func (oS *OrderService) Checkout(ctx context.Context, orderRequest *model.OrderR
 	}
 
 	if err := oS.OrderProductRepository.CreateOrderProducts(&products); err != nil {
-		return err 
+		return err
 	}
-  
-  payload, err := json.Marshal(order)
 
-  if err != nil {
-    return err
-  }
-  err = oS.OrderPublisher.Publish(
-    []byte(payload),
-    []string{""},
-    rabbitmq.WithPublishOptionsContentType("application/json"),
-    rabbitmq.WithPublishOptionsExchange("proceed_payment"),
-    )
+	err := oS.OrderPublisher.Checkout(&order)
 
-  if err != nil {
-    return err
-  }
+	if err != nil {
+		return err
+	}
 	return nil
-}
-
-func (oS *OrderService) Consume(){
-  err := oS.OrderConsumer.Run(func(d rabbitmq.Delivery) rabbitmq.Action {
-    oS.Log.Infof("Success Consume : %v \n", string(d.Body))
-    return rabbitmq.Ack
-  })
-
-  if err != nil {
-    oS.Log.Panicf("Error Consume Message : %v", err)
-  } 
 }
